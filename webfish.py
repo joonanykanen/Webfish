@@ -116,10 +116,22 @@ def analyze_pgn():
 
         # Analyze each FEN position
         positions = []
-        for fen in fens:
+        total_fens = len(fens)
+
+        for index, fen in enumerate(fens):
             stockfish.set_fen_position(fen)
             best_moves = stockfish.get_top_moves(3)  # Get top 3 moves
             positions.append({"fen": fen, "best_moves": best_moves})
+
+            # Log current position analysis
+            percent_complete = (index + 1) / total_fens * 100
+            app.logger.info(
+                "Analyzing position %d/%d (FEN: %s) - %.2f%% complete",
+                index + 1,
+                total_fens,
+                fen,
+                percent_complete,
+            )
 
         analysis_data = {"pgn": pgn, "depth": depth, "positions": positions}
 
