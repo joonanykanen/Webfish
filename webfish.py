@@ -7,34 +7,35 @@ from flask import Flask, request, jsonify
 from stockfish import Stockfish
 import chess.pgn
 
+import datetime as dt
+import uuid
+
 SF_PATH = "stockfish/stockfish-ubuntu-x86-64-avx2"
 SF_CONFIG_PATH = "stockfish_config.json"
+ANALYSES_FOLDER = "analyses"  # Folder to store analysis results
 MAX_DEPTH = 30
 
 app = Flask(__name__)
 
-# Load engine parameters from a file
-try:
-    if not os.path.exists(SF_CONFIG_PATH):
-        raise FileNotFoundError(f"Configuration file {SF_CONFIG_PATH} not found.")
+# Ensure analyses folder exists
+os.makedirs(ANALYSES_FOLDER, exist_ok=True)
 
+# Load engine parameters from a file with error handling
+try:
     with open(SF_CONFIG_PATH) as f:
         engine_params = json.load(f)
-except FileNotFoundError as e:
-    app.logger.error(f"File error: {e}")
-    engine_params = {}  # Use default parameters if config not found
-except json.JSONDecodeError as e:
-    app.logger.error(f"Error decoding JSON config: {e}")
-    engine_params = {}  # Use default parameters on config error
+except (FileNotFoundError, json.JSONDecodeError) as e:
+    app.logger.error(f"Error loading Stockfish config: {e}")
+    engine_params = {}
 
-# Initialize Stockfish engine
+# Initialize Stockfish engine with error handling
 try:
     stockfish = Stockfish(path=SF_PATH, parameters=engine_params)
     if not stockfish.is_ready():
         raise EnvironmentError("Stockfish engine is not ready.")
 except Exception as e:
     app.logger.error(f"Error initializing Stockfish: {e}")
-    stockfish = None  # Set to None if initialization fails
+    stockfish = None
 
 
 # Function to convert PGN to a list of FEN positions
@@ -54,6 +55,22 @@ def pgn_to_fen_list(pgn):
     except Exception as e:
         app.logger.error(f"Error parsing PGN: {e}")
         return []
+
+
+# Function to save analysis results to a file
+def save_analysis_to_file(data):
+    timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d_%H%M%S")
+    unique_id = str(uuid.uuid4())
+    filename = f"{timestamp}_{unique_id}.json"
+    filepath = os.path.join(ANALYSES_FOLDER, filename)
+
+    try:
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4)
+        return filepath
+    except Exception as e:
+        app.logger.error(f"Error saving analysis to file: {e}")
+        return None
 
 
 # API to analyze PGN
@@ -94,7 +111,14 @@ def analyze_pgn():
             best_moves = stockfish.get_top_moves(3)  # Get top 3 moves
             positions.append({"fen": fen, "best_moves": best_moves})
 
-        return jsonify(positions)
+        analysis_data = {"pgn": pgn, "depth": depth, "positions": positions}
+
+        # Save analysis results to file
+        saved_filepath = save_analysis_to_file(analysis_data)
+        if not saved_filepath:
+            return jsonify({"error": "Failed to save analysis results."}), 500
+
+        return jsonify({"status": "success", "analysis": analysis_data})
 
     except Exception as e:
         app.logger.error(f"Error analyzing PGN: {e}")
