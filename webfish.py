@@ -42,8 +42,6 @@ app.logger.info("Initializing Stockfish engine from %s", SF_PATH)
 # Initialize Stockfish engine
 try:
     stockfish = Stockfish(path=SF_PATH, parameters=engine_params)
-    if not stockfish.is_ready():
-        raise EnvironmentError("Stockfish engine is not ready.")
     app.logger.info("Stockfish engine initialized successfully.")
 except Exception as e:
     app.logger.error("Error initializing Stockfish: %s", e)
