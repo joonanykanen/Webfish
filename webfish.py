@@ -9,32 +9,44 @@ import chess.pgn
 
 import datetime as dt
 import uuid
+import logging
 
 SF_PATH = "stockfish/stockfish-ubuntu-x86-64-avx2"
 SF_CONFIG_PATH = "stockfish_config.json"
 ANALYSES_FOLDER = "analyses"  # Folder to store analysis results
 MAX_DEPTH = 15  # For stronger play, set depth to at least 30
 
+# Initialize Flask app
 app = Flask(__name__)
+
+# Set up logging for the app
+logging.basicConfig(level=logging.INFO)
+app.logger.setLevel(logging.INFO)
 
 # Ensure analyses folder exists
 os.makedirs(ANALYSES_FOLDER, exist_ok=True)
 
-# Load engine parameters from a file with error handling
+# Load engine parameters from a file
 try:
+    app.logger.info("Loading Stockfish configuration from %s", SF_CONFIG_PATH)
     with open(SF_CONFIG_PATH) as f:
         engine_params = json.load(f)
+    app.logger.info("Stockfish configuration loaded successfully.")
 except (FileNotFoundError, json.JSONDecodeError) as e:
-    app.logger.error(f"Error loading Stockfish config: {e}")
+    app.logger.error("Error loading Stockfish config: %s", e)
     engine_params = {}
 
-# Initialize Stockfish engine with error handling
+# Log before initializing Stockfish
+app.logger.info("Initializing Stockfish engine from %s", SF_PATH)
+
+# Initialize Stockfish engine
 try:
     stockfish = Stockfish(path=SF_PATH, parameters=engine_params)
     if not stockfish.is_ready():
         raise EnvironmentError("Stockfish engine is not ready.")
+    app.logger.info("Stockfish engine initialized successfully.")
 except Exception as e:
-    app.logger.error(f"Error initializing Stockfish: {e}")
+    app.logger.error("Error initializing Stockfish: %s", e)
     stockfish = None
 
 
@@ -53,7 +65,7 @@ def pgn_to_fen_list(pgn):
             node = next_node
         return fens
     except Exception as e:
-        app.logger.error(f"Error parsing PGN: {e}")
+        app.logger.error("Error parsing PGN: %s", e)
         return []
 
 
@@ -69,7 +81,7 @@ def save_analysis_to_file(data):
             json.dump(data, f, indent=4)
         return filepath
     except Exception as e:
-        app.logger.error(f"Error saving analysis to file: {e}")
+        app.logger.error("Error saving analysis to file: %s", e)
         return None
 
 
@@ -121,11 +133,12 @@ def analyze_pgn():
         return jsonify({"status": "success", "analysis": analysis_data})
 
     except Exception as e:
-        app.logger.error(f"Error analyzing PGN: {e}")
+        app.logger.error("Error analyzing PGN: %s", e)
         return jsonify({"error": "An internal error occurred during analysis."}), 500
 
 
 if __name__ == "__main__":
+    app.logger.info("Starting Flask server...")
     app.run(debug=True)
 
 # eof
