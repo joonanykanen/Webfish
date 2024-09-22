@@ -13,7 +13,7 @@ import uuid
 SF_PATH = "stockfish/stockfish-ubuntu-x86-64-avx2"
 SF_CONFIG_PATH = "stockfish_config.json"
 ANALYSES_FOLDER = "analyses"  # Folder to store analysis results
-MAX_DEPTH = 30
+MAX_DEPTH = 15  # For stronger play, set depth to at least 30
 
 app = Flask(__name__)
 
